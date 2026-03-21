@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EBX — Key Authentication</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#010a03;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem;}
+
+  .wrap{background:#020b06;border-radius:10px;overflow:hidden;font-family:'Share Tech Mono',monospace;position:relative;width:100%;max-width:680px;}
+  .scanline{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,80,0.015) 3px,rgba(0,255,80,0.015) 4px);pointer-events:none;z-index:10;}
+
+  .hbar{width:100%;background:#0a1f0f;border-bottom:2px solid #00ff41;padding:0.8rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;}
+  .alert-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;font-weight:700;color:#ff3333;letter-spacing:0.18em;animation:blink 1s step-end infinite;}
+  .sys-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;color:#00ff41;letter-spacing:0.12em;opacity:0.7;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+  .body{padding:1.8rem 2rem;display:flex;flex-direction:column;align-items:center;gap:1.4rem;}
+
+  .intro-box{background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.2);border-radius:4px;padding:1rem 1.2rem;width:100%;}
+  .intro-box p{font-family:'Rajdhani',sans-serif;font-size:1rem;color:#a0e8b0;line-height:1.75;}
+  .intro-box p strong{color:#00ff41;font-weight:600;}
+
+  .instr-lbl{font-family:'Orbitron',monospace;font-size:0.68rem;color:#3a8a4a;letter-spacing:0.1em;text-align:center;}
+
+  .keys-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;width:100%;}
+
+  .key-btn{background:#0a1f0f;border:2px solid #00aa30;border-radius:8px;padding:1rem 0.6rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;width:96px;transition:border-color 0.2s,background 0.2s;}
+  .key-btn:hover:not(:disabled){border-color:#00ff41;background:#0f2a14;}
+  .key-btn:disabled{cursor:not-allowed;opacity:0.35;}
+  .key-lbl{font-family:'Orbitron',monospace;font-size:0.6rem;letter-spacing:0.1em;color:#3a8a4a;}
+
+  .lock-area{display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .lock-status{font-family:'Orbitron',monospace;font-size:0.65rem;letter-spacing:0.12em;color:#3a8a4a;}
+
+  .feedback-line{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:600;letter-spacing:0.04em;text-align:center;min-height:1.5rem;}
+
+  .code-box{background:#010e04;border:2px solid #00ff41;border-radius:6px;padding:1rem 2rem;text-align:center;width:100%;max-width:360px;}
+  .code-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;color:#00aa30;letter-spacing:0.18em;margin-bottom:0.4rem;}
+  .code-num{font-family:'Share Tech Mono',monospace;font-size:2.6rem;color:#00ff41;letter-spacing:0.3em;}
+
+  .door-text{font-family:'Rajdhani',sans-serif;font-size:0.95rem;color:#a0e8b0;text-align:center;line-height:1.7;max-width:480px;}
+  .door-text strong{color:#00ff41;}
+
+  /* COOLDOWN OVERLAY */
+  .cd-layer{position:absolute;inset:0;background:rgba(1,3,1,0.97);display:none;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;z-index:40;padding:2rem;}
+  .cd-icon{font-size:3.5rem;color:#ff3333;animation:iconpulse 1s ease-in-out infinite alternate;}
+  @keyframes iconpulse{from{opacity:0.4}to{opacity:1}}
+  .cd-title{font-family:'Orbitron',monospace;font-size:1rem;font-weight:900;color:#ff3333;letter-spacing:0.15em;text-align:center;}
+  .cd-msg{font-family:'Rajdhani',sans-serif;font-size:0.95rem;color:#cc4444;text-align:center;line-height:1.7;max-width:380px;}
+  .cd-clock{font-family:'Orbitron',monospace;font-size:3rem;font-weight:900;color:#ff3333;letter-spacing:0.1em;}
+  .cd-bar-wrap{width:280px;height:8px;background:#1a0505;border-radius:4px;overflow:hidden;border:1px solid #330000;}
+  .cd-bar{height:100%;background:#ff3333;border-radius:4px;width:100%;transition:width 1s linear;}
+
+  @keyframes shake{
+    0%,100%{transform:translateX(0)}
+    20%{transform:translateX(-8px)}
+    40%{transform:translateX(8px)}
+    60%{transform:translateX(-5px)}
+    80%{transform:translateX(5px)}
+  }
+  .shake{animation:shake 0.45s ease;}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="mainWrap">
+  <div class="scanline"></div>
+
+  <div class="hbar">
+    <div class="alert-lbl">⚠ CRITICAL SYSTEM ALERT — EBX</div>
+    <div class="sys-lbl">KEY AUTHENTICATION MODULE</div>
+  </div>
+
+  <div class="body">
+
+    <div class="intro-box">
+      <p>Five access keys are displayed before you. <strong>Only one</strong> will open the lock and grant passage to the next level. Choose wisely — an incorrect key triggers a <strong>5-minute security lockout</strong> before you may try again.</p>
+    </div>
+
+    <div class="instr-lbl">&gt; SELECT A KEY TO ATTEMPT THE LOCK</div>
+
+    <div class="keys-row" id="keysRow"></div>
+
+    <div class="lock-area">
+      <svg id="lockSvg" width="80" height="96" viewBox="0 0 80 96" xmlns="http://www.w3.org/2000/svg">
+        <rect id="lockBody" x="8" y="40" width="64" height="50" rx="6" fill="#0a2a10" stroke="#00aa30" stroke-width="3"/>
+        <path id="shackle" d="M22,40 L22,24 A18,18 0 0,1 58,24 L58,40" fill="none" stroke="#00aa30" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="40" cy="62" r="8" fill="#00aa30" opacity="0.6"/>
+        <rect x="37" y="62" width="6" height="10" rx="2" fill="#00aa30" opacity="0.6"/>
+      </svg>
+      <div class="lock-status" id="lockStatus">LOCKED</div>
+    </div>
+
+    <div class="feedback-line" id="feedbackLine"></div>
+    <div id="resultArea" style="display:flex;flex-direction:column;align-items:center;gap:1rem;width:100%;"></div>
+
+  </div>
+
+  <!-- COOLDOWN OVERLAY -->
+  <div class="cd-layer" id="cdLayer">
+    <div class="cd-icon">🔒</div>
+    <div class="cd-title">SECURITY LOCKOUT ACTIVE</div>
+    <div class="cd-msg">Incorrect key detected. System locked for security protocol.<br>Please wait before attempting again.</div>
+    <div class="cd-clock" id="cdClock">5:00</div>
+    <div class="cd-bar-wrap">
+      <div class="cd-bar" id="cdBar"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var CORRECT = 3;
+  var SECS = 300;
+  var done = false;
+  var cdTimer = null;
+
+  var KC = ['#00bb2a','#009922','#00ff41','#00cc33','#008833'];
+
+  function keyInner(i, c) {
+    var shapes = [
+      '<circle cx="20" cy="20" r="14" fill="#0a2a10" stroke="'+c+'" stroke-width="3"/><circle cx="20" cy="20" r="6" fill="'+c+'" opacity="0.5"/><rect x="30" y="16" width="36" height="8" rx="3" fill="'+c+'"/><rect x="54" y="24" width="6" height="8" rx="2" fill="'+c+'"/><rect x="46" y="24" width="5" height="6" rx="2" fill="'+c+'"/>',
+      '<circle cx="20" cy="20" r="14" fill="#0a2a10" stroke="'+c+'" stroke-width="3"/><line x1="20" y1="13" x2="20" y2="27" stroke="'+c+'" stroke-width="3"/><line x1="13" y1="20" x2="27" y2="20" stroke="'+c+'" stroke-width="3"/><rect x="30" y="16" width="36" height="8" rx="3" fill="'+c+'"/><rect x="56" y="24" width="5" height="7" rx="2" fill="'+c+'"/>',
+      '<circle cx="20" cy="20" r="14" fill="#0a2a10" stroke="'+c+'" stroke-width="3"/><circle cx="20" cy="20" r="9" fill="none" stroke="'+c+'" stroke-width="2"/><circle cx="20" cy="20" r="3" fill="'+c+'"/><rect x="30" y="16" width="36" height="8" rx="3" fill="'+c+'"/><rect x="52" y="24" width="6" height="8" rx="2" fill="'+c+'"/><rect x="44" y="24" width="5" height="5" rx="2" fill="'+c+'"/>',
+      '<rect x="8" y="8" width="24" height="24" rx="4" fill="#0a2a10" stroke="'+c+'" stroke-width="3"/><rect x="14" y="14" width="12" height="12" rx="2" fill="'+c+'" opacity="0.5"/><rect x="30" y="16" width="36" height="8" rx="3" fill="'+c+'"/><rect x="58" y="24" width="5" height="9" rx="2" fill="'+c+'"/><rect x="50" y="24" width="5" height="6" rx="2" fill="'+c+'"/>',
+      '<polygon points="20,6 34,34 6,34" fill="#0a2a10" stroke="'+c+'" stroke-width="3"/><circle cx="20" cy="24" r="4" fill="'+c+'" opacity="0.6"/><rect x="30" y="16" width="36" height="8" rx="3" fill="'+c+'"/><rect x="55" y="24" width="5" height="8" rx="2" fill="'+c+'"/>'
+    ];
+    return '<svg viewBox="0 0 72 44" style="width:72px;height:44px;">' + shapes[i] + '</svg>';
+  }
+
+  function buildKeys() {
+    var row = document.getElementById('keysRow');
+    for (var i = 0; i < 5; i++) {
+      (function(n) {
+        var btn = document.createElement('button');
+        btn.className = 'key-btn';
+        btn.id = 'k' + n;
+        btn.innerHTML = keyInner(n - 1, KC[n - 1]) + '<div class="key-lbl">KEY ' + n + '</div>';
+        btn.addEventListener('click', function() { selectKey(n, btn); });
+        row.appendChild(btn);
+      })(i + 1);
+    }
+  }
+
+  function setKeys(off) {
+    for (var i = 1; i <= 5; i++) {
+      var b = document.getElementById('k' + i);
+      if (b) b.disabled = off;
+    }
+  }
+
+  function fmt(s) {
+    var m = Math.floor(s / 60);
+    var sec = s % 60;
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+
+  function playOk() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [523, 659, 784, 1047, 1319].forEach(function(f, i) {
+        var t = ctx.currentTime + i * 0.1;
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.2, t + 0.04);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+        o.start(t); o.stop(t + 0.8);
+      });
+    } catch(e) {}
+  }
+
+  function playErr() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'square';
+      o.frequency.setValueAtTime(220, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.4);
+      g.gain.setValueAtTime(0.25, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      o.start(); o.stop(ctx.currentTime + 0.5);
+    } catch(e) {}
+  }
+
+  function startCooldown() {
+    setKeys(true);
+    var layer = document.getElementById('cdLayer');
+    layer.style.display = 'flex';
+    var rem = SECS;
+    document.getElementById('cdClock').textContent = fmt(rem);
+    document.getElementById('cdBar').style.transition = 'none';
+    document.getElementById('cdBar').style.width = '100%';
+
+    cdTimer = setInterval(function() {
+      rem--;
+      document.getElementById('cdClock').textContent = fmt(rem);
+      document.getElementById('cdBar').style.transition = 'width 1s linear';
+      document.getElementById('cdBar').style.width = Math.round((rem / SECS) * 100) + '%';
+      if (rem <= 0) {
+        clearInterval(cdTimer);
+        layer.style.display = 'none';
+        setKeys(false);
+        document.getElementById('lockStatus').style.color = '#3a8a4a';
+        document.getElementById('lockStatus').textContent = 'LOCKED';
+        document.getElementById('feedbackLine').textContent = '';
+        document.getElementById('feedbackLine').style.color = '';
+      }
+    }, 1000);
+  }
+
+  function shakeBtn(btn) {
+    btn.classList.remove('shake');
+    void btn.offsetWidth;
+    btn.classList.add('shake');
+    setTimeout(function() { btn.classList.remove('shake'); }, 500);
+  }
+
+  function selectKey(n, btn) {
+    if (done) return;
+
+    if (n === CORRECT) {
+      done = true;
+      setKeys(true);
+      btn.style.borderColor = '#00ff41';
+      btn.style.background = '#0a2a10';
+      btn.querySelector('.key-lbl').style.color = '#00ff41';
+      playOk();
+
+      document.getElementById('shackle').setAttribute('d', 'M22,36 L22,18 A18,18 0 0,1 58,18 L58,28');
+      document.getElementById('lockBody').setAttribute('fill', '#0a3a18');
+      document.getElementById('lockBody').setAttribute('stroke', '#00ff41');
+      document.getElementById('shackle').setAttribute('stroke', '#00ff41');
+      document.getElementById('lockStatus').style.color = '#00ff41';
+      document.getElementById('lockStatus').textContent = 'UNLOCKED';
+      document.getElementById('feedbackLine').style.color = '#00ff41';
+      document.getElementById('feedbackLine').textContent = '✓ CORRECT KEY — ACCESS GRANTED';
+
+      var ra = document.getElementById('resultArea');
+      ra.innerHTML =
+        '<div class="code-box"><div class="code-lbl">ACCESS CODE — NEXT LEVEL</div><div class="code-num">4719</div></div>' +
+        '<div class="door-text">The lock disengages. The door slides open.<br><strong>Proceed to the next challenge.</strong><br>Use the code above when prompted.</div>';
+
+    } else {
+      shakeBtn(btn);
+      playErr();
+      btn.style.borderColor = '#ff3333';
+      btn.style.background = '#1a0505';
+      btn.querySelector('.key-lbl').style.color = '#ff4444';
+      document.getElementById('lockStatus').style.color = '#ff3333';
+      document.getElementById('lockStatus').textContent = 'REJECTED';
+      document.getElementById('feedbackLine').style.color = '#ff4444';
+      document.getElementById('feedbackLine').textContent = '✗ KEY ' + n + ' REJECTED — LOCKOUT INITIATED';
+      setTimeout(startCooldown, 600);
+    }
+  }
+
+  buildKeys();
+</script>
+</body>
+</html>
