@@ -116,6 +116,8 @@
   var SECS = 300;
   var done = false;
   var cdTimer = null;
+  var STORAGE_CD = 'ebx_key_cooldown_until';
+  var STORAGE_SOLVED = 'ebx_key_solved';
 
   var KC = ['#00bb2a','#009922','#00ff41','#00cc33','#008833'];
 
@@ -187,22 +189,21 @@
     } catch(e) {}
   }
 
-  function startCooldown() {
+  function startCooldown(untilTimestamp) {
+    var until = untilTimestamp || (Date.now() + SECS * 1000);
+    localStorage.setItem(STORAGE_CD, until);
     setKeys(true);
     var layer = document.getElementById('cdLayer');
     layer.style.display = 'flex';
-    var rem = SECS;
-    document.getElementById('cdClock').textContent = fmt(rem);
-    document.getElementById('cdBar').style.transition = 'none';
-    document.getElementById('cdBar').style.width = '100%';
 
-    cdTimer = setInterval(function() {
-      rem--;
+    function tick() {
+      var rem = Math.max(0, Math.ceil((until - Date.now()) / 1000));
       document.getElementById('cdClock').textContent = fmt(rem);
       document.getElementById('cdBar').style.transition = 'width 1s linear';
       document.getElementById('cdBar').style.width = Math.round((rem / SECS) * 100) + '%';
       if (rem <= 0) {
         clearInterval(cdTimer);
+        localStorage.removeItem(STORAGE_CD);
         layer.style.display = 'none';
         setKeys(false);
         document.getElementById('lockStatus').style.color = '#3a8a4a';
@@ -210,7 +211,45 @@
         document.getElementById('feedbackLine').textContent = '';
         document.getElementById('feedbackLine').style.color = '';
       }
-    }, 1000);
+    }
+
+    tick();
+    cdTimer = setInterval(tick, 1000);
+  }
+
+  function showSolved() {
+    done = true;
+    setKeys(true);
+    document.getElementById('shackle').setAttribute('d', 'M22,36 L22,18 A18,18 0 0,1 58,18 L58,28');
+    document.getElementById('lockBody').setAttribute('fill', '#0a3a18');
+    document.getElementById('lockBody').setAttribute('stroke', '#00ff41');
+    document.getElementById('shackle').setAttribute('stroke', '#00ff41');
+    document.getElementById('lockStatus').style.color = '#00ff41';
+    document.getElementById('lockStatus').textContent = 'UNLOCKED';
+    document.getElementById('feedbackLine').style.color = '#00ff41';
+    document.getElementById('feedbackLine').textContent = '✓ CORRECT KEY — ACCESS GRANTED';
+    var ra = document.getElementById('resultArea');
+    ra.innerHTML =
+      '<div class="code-box"><div class="code-lbl">ACCESS CODE — NEXT LEVEL</div><div class="code-num">4719</div></div>' +
+      '<div class="door-text">The lock disengages. The door slides open.<br><strong>Proceed to the next challenge.</strong><br>Use the code above when prompted.</div>';
+  }
+
+  function checkStateOnLoad() {
+    if (localStorage.getItem(STORAGE_SOLVED) === '1') {
+      showSolved();
+      return;
+    }
+    var cdUntil = localStorage.getItem(STORAGE_CD);
+    if (cdUntil) {
+      var rem = Math.ceil((parseInt(cdUntil) - Date.now()) / 1000);
+      if (rem > 0) {
+        document.getElementById('feedbackLine').style.color = '#ff4444';
+        document.getElementById('feedbackLine').textContent = 'LOCKOUT ACTIVE — SYSTEM LOCKED';
+        startCooldown(parseInt(cdUntil));
+      } else {
+        localStorage.removeItem(STORAGE_CD);
+      }
+    }
   }
 
   function shakeBtn(btn) {
@@ -224,26 +263,13 @@
     if (done) return;
 
     if (n === CORRECT) {
-      done = true;
-      setKeys(true);
+      localStorage.setItem(STORAGE_SOLVED, '1');
+      localStorage.removeItem(STORAGE_CD);
       btn.style.borderColor = '#00ff41';
       btn.style.background = '#0a2a10';
       btn.querySelector('.key-lbl').style.color = '#00ff41';
       playOk();
-
-      document.getElementById('shackle').setAttribute('d', 'M22,36 L22,18 A18,18 0 0,1 58,18 L58,28');
-      document.getElementById('lockBody').setAttribute('fill', '#0a3a18');
-      document.getElementById('lockBody').setAttribute('stroke', '#00ff41');
-      document.getElementById('shackle').setAttribute('stroke', '#00ff41');
-      document.getElementById('lockStatus').style.color = '#00ff41';
-      document.getElementById('lockStatus').textContent = 'UNLOCKED';
-      document.getElementById('feedbackLine').style.color = '#00ff41';
-      document.getElementById('feedbackLine').textContent = '✓ CORRECT KEY — ACCESS GRANTED';
-
-      var ra = document.getElementById('resultArea');
-      ra.innerHTML =
-        '<div class="code-box"><div class="code-lbl">ACCESS CODE — NEXT LEVEL</div><div class="code-num">4719</div></div>' +
-        '<div class="door-text">The lock disengages. The door slides open.<br><strong>Proceed to the next challenge.</strong><br>Use the code above when prompted.</div>';
+      showSolved();
 
     } else {
       shakeBtn(btn);
@@ -255,11 +281,12 @@
       document.getElementById('lockStatus').textContent = 'REJECTED';
       document.getElementById('feedbackLine').style.color = '#ff4444';
       document.getElementById('feedbackLine').textContent = '✗ KEY ' + n + ' REJECTED — LOCKOUT INITIATED';
-      setTimeout(startCooldown, 600);
+      setTimeout(function() { startCooldown(); }, 600);
     }
   }
 
   buildKeys();
+  checkStateOnLoad();
 </script>
 </body>
 </html>
