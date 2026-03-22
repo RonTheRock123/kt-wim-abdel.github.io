@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EBX — Dual Authentication Protocol</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#010a03;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem;}
+
+  .wrap{background:#020b06;border-radius:10px;overflow:hidden;font-family:'Share Tech Mono',monospace;position:relative;width:100%;max-width:720px;}
+  .scanline{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,80,0.015) 3px,rgba(0,255,80,0.015) 4px);pointer-events:none;z-index:10;}
+
+  .hbar{width:100%;background:#0a1f0f;border-bottom:2px solid #00ff41;padding:0.8rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;}
+  .alert-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;font-weight:700;color:#ff3333;letter-spacing:0.18em;animation:blink 1s step-end infinite;}
+  .sys-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;color:#00ff41;letter-spacing:0.12em;opacity:0.7;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+  .body{padding:1.8rem 2rem;display:flex;flex-direction:column;align-items:center;gap:1.6rem;}
+
+  .intro-box{background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.2);border-radius:4px;padding:1rem 1.2rem;width:100%;}
+  .intro-box p{font-family:'Rajdhani',sans-serif;font-size:1rem;color:#a0e8b0;line-height:1.75;}
+  .intro-box p strong{color:#00ff41;font-weight:600;}
+
+  .terminals-row{display:flex;gap:1.2rem;width:100%;flex-wrap:wrap;}
+
+  .terminal-panel{flex:1;min-width:220px;background:#010e04;border:2px solid #00aa30;border-radius:6px;padding:1.2rem 1rem;display:flex;flex-direction:column;gap:0.8rem;transition:border-color 0.4s;}
+  .terminal-panel.active{border-color:#00ff41;box-shadow:0 0 12px rgba(0,255,65,0.15);}
+  .terminal-panel.confirmed{border-color:#00ff41;}
+  .terminal-panel.error{border-color:#ff3333;}
+
+  .panel-header{display:flex;align-items:center;gap:0.6rem;}
+  .panel-num{font-family:'Orbitron',monospace;font-size:0.65rem;color:#3a8a4a;letter-spacing:0.15em;}
+  .status-dot{width:10px;height:10px;border-radius:50%;background:#1a5a2a;border:2px solid #3a8a4a;transition:all 0.4s;flex-shrink:0;}
+  .status-dot.ready{background:#00ff41;border-color:#00ff41;box-shadow:0 0 6px rgba(0,255,65,0.6);}
+  .status-dot.error{background:#ff3333;border-color:#ff3333;box-shadow:0 0 6px rgba(255,51,51,0.6);}
+  .status-dot.pulse{animation:dotpulse 0.8s ease-in-out infinite alternate;}
+  @keyframes dotpulse{from{opacity:0.3}to{opacity:1}}
+
+  .panel-label{font-family:'Orbitron',monospace;font-size:0.6rem;color:#3a8a4a;letter-spacing:0.1em;}
+
+  .code-input{
+    width:100%;
+    background:#020b06;
+    border:1px solid #1a5a2a;
+    border-radius:4px;
+    padding:0.65rem 0.8rem;
+    font-family:'Share Tech Mono',monospace;
+    font-size:1.1rem;
+    color:#00ff41;
+    outline:none;
+    letter-spacing:0.15em;
+    caret-color:#00ff41;
+    text-transform:uppercase;
+    transition:border-color 0.2s;
+  }
+  .code-input::placeholder{color:#1a4a22;letter-spacing:0.05em;text-transform:none;}
+  .code-input:focus{border-color:#00aa30;}
+  .code-input:disabled{opacity:0.4;}
+
+  .confirm-btn{
+    width:100%;
+    background:transparent;
+    color:#00aa30;
+    font-family:'Orbitron',monospace;
+    font-size:0.65rem;
+    font-weight:700;
+    letter-spacing:0.12em;
+    border:1px solid #00aa30;
+    border-radius:4px;
+    padding:0.6rem;
+    cursor:pointer;
+    transition:background 0.2s,color 0.2s;
+  }
+  .confirm-btn:hover:not(:disabled){background:#00aa30;color:#010e04;}
+  .confirm-btn:active{transform:scale(0.97);}
+  .confirm-btn:disabled{opacity:0.3;cursor:not-allowed;}
+  .confirm-btn.confirmed{background:#00ff41;color:#010e04;border-color:#00ff41;}
+
+  .panel-status{font-family:'Rajdhani',sans-serif;font-size:0.85rem;font-weight:600;text-align:center;min-height:1.2rem;color:#3a8a4a;}
+  .panel-status.ok{color:#00ff41;}
+  .panel-status.waiting{color:#3a8a4a;animation:blink 1.2s step-end infinite;}
+
+  .divider{width:100%;height:1px;background:rgba(0,255,65,0.1);}
+
+  .launch-section{width:100%;display:flex;flex-direction:column;align-items:center;gap:1rem;}
+
+  .launch-btn{
+    width:100%;
+    max-width:360px;
+    background:transparent;
+    color:#3a8a4a;
+    font-family:'Orbitron',monospace;
+    font-size:0.8rem;
+    font-weight:900;
+    letter-spacing:0.18em;
+    border:2px solid #1a5a2a;
+    border-radius:6px;
+    padding:1rem;
+    cursor:not-allowed;
+    transition:all 0.4s;
+    opacity:0.4;
+  }
+  .launch-btn.armed{
+    color:#ff3333;
+    border-color:#ff3333;
+    cursor:pointer;
+    opacity:1;
+    animation:armedpulse 1s ease-in-out infinite alternate;
+  }
+  @keyframes armedpulse{
+    from{box-shadow:0 0 6px rgba(255,51,51,0.3);}
+    to{box-shadow:0 0 18px rgba(255,51,51,0.7);}
+  }
+  .launch-btn.armed:hover{background:#1a0000;}
+  .launch-btn.fired{color:#00ff41;border-color:#00ff41;cursor:default;animation:none;box-shadow:0 0 18px rgba(0,255,65,0.4);}
+
+  .status-bar{font-family:'Orbitron',monospace;font-size:0.65rem;letter-spacing:0.12em;text-align:center;color:#3a8a4a;}
+  .status-bar.armed{color:#ff3333;animation:blink 0.6s step-end infinite;}
+  .status-bar.fired{color:#00ff41;}
+
+  .result-box{background:#010e04;border:2px solid #00ff41;border-radius:6px;padding:1.2rem 1.5rem;text-align:center;width:100%;animation:fadeup 0.5s ease;}
+  @keyframes fadeup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  .result-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;color:#00aa30;letter-spacing:0.18em;margin-bottom:0.6rem;}
+  .result-link{font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:#00ff41;letter-spacing:0.04em;word-break:break-all;line-height:1.8;text-decoration:none;}
+  .result-link:hover{text-decoration:underline;}
+  .result-msg{font-family:'Rajdhani',sans-serif;font-size:0.95rem;color:#a0e8b0;margin-top:0.8rem;line-height:1.7;}
+  .result-msg strong{color:#00ff41;}
+
+  .handshake-anim{display:flex;align-items:center;justify-content:center;gap:1rem;padding:0.5rem 0;}
+  .hs-block{width:60px;height:4px;background:#00ff41;border-radius:2px;animation:hspulse 0.6s ease-in-out infinite alternate;}
+  .hs-block:nth-child(3){animation-delay:0.3s;}
+  .hs-dot{width:12px;height:12px;border-radius:50%;background:#00ff41;animation:hspulse 0.6s ease-in-out infinite alternate;animation-delay:0.15s;}
+  @keyframes hspulse{from{opacity:0.3;transform:scaleX(0.8)}to{opacity:1;transform:scaleX(1)}}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="mainWrap">
+  <div class="scanline"></div>
+
+  <div class="hbar">
+    <div class="alert-lbl">⚠ CRITICAL SYSTEM ALERT — EBX</div>
+    <div class="sys-lbl">DUAL AUTHENTICATION PROTOCOL</div>
+  </div>
+
+  <div class="body">
+
+    <div class="intro-box">
+      <p>Final security barrier. This system requires <strong>two simultaneous access codes</strong> — one from each operator. Both codes must be entered and confirmed before the launch sequence can be initiated. Enter your codes and confirm. Then execute the override together.</p>
+    </div>
+
+    <div class="terminals-row">
+
+      <div class="terminal-panel" id="panel1">
+        <div class="panel-header">
+          <div class="status-dot pulse" id="dot1"></div>
+          <div class="panel-num">TERMINAL — ALPHA</div>
+        </div>
+        <div class="panel-label">&gt; OPERATOR CODE A (6 CHARACTERS):</div>
+        <input type="text" class="code-input" id="input1" maxlength="6" placeholder="e.g. A3B9C2" autocomplete="off" spellcheck="false"/>
+        <button class="confirm-btn" id="btn1" onclick="confirm1()">CONFIRM CODE A</button>
+        <div class="panel-status waiting" id="status1">AWAITING INPUT...</div>
+      </div>
+
+      <div class="terminal-panel" id="panel2">
+        <div class="panel-header">
+          <div class="status-dot pulse" id="dot2"></div>
+          <div class="panel-num">TERMINAL — BRAVO</div>
+        </div>
+        <div class="panel-label">&gt; OPERATOR CODE B (5 CHARACTERS):</div>
+        <input type="text" class="code-input" id="input2" maxlength="5" placeholder="e.g. X7K2M" autocomplete="off" spellcheck="false"/>
+        <button class="confirm-btn" id="btn2" onclick="confirm2()">CONFIRM CODE B</button>
+        <div class="panel-status waiting" id="status2">AWAITING INPUT...</div>
+      </div>
+
+    </div>
+
+    <div class="launch-section">
+      <div class="status-bar" id="statusBar">BOTH OPERATORS MUST CONFIRM BEFORE LAUNCH</div>
+      <button class="launch-btn" id="launchBtn" disabled onclick="launch()">⚡ EXECUTE OVERRIDE ⚡</button>
+    </div>
+
+    <div class="divider"></div>
+    <div id="resultArea"></div>
+
+  </div>
+</div>
+
+<script>
+  var CODE_A = 'k3pq2y';
+  var CODE_B = 'k4m2x';
+  var CORRECT_PATH = '1774171562555/72557bf56ce23b1a0db5a597d24ec1c299c56199';
+  var BASE_URL = 'https://app.mural.co/t/jumbotechcampus6598/m/jumbotechcampus6598/';
+  var STORAGE_KEY = 'ebx_launch_result';
+
+  var confirmed1 = false;
+  var confirmed2 = false;
+  var launched = false;
+
+  var wrongPaths = [
+    '1774100000001/deadbeef00000000000000000000000000000001',
+    '1774100000002/deadbeef00000000000000000000000000000002',
+    '1774100000003/deadbeef00000000000000000000000000000003',
+    '1774100000004/deadbeef00000000000000000000000000000004',
+    '1774100000005/deadbeef00000000000000000000000000000005',
+    '1774100000006/deadbeef00000000000000000000000000000006',
+    '1774100000007/deadbeef00000000000000000000000000000007',
+    '1774100000008/deadbeef00000000000000000000000000000008',
+    '1774100000009/deadbeef00000000000000000000000000000009',
+    '1774100000010/deadbeef00000000000000000000000000000010',
+    '1774100000011/deadbeef00000000000000000000000000000011',
+    '1774100000012/deadbeef00000000000000000000000000000012',
+  ];
+
+  function getWrongPath(a, b) {
+    var combined = (a + b).toLowerCase();
+    var hash = 0;
+    for (var i = 0; i < combined.length; i++) {
+      hash = ((hash << 5) - hash) + combined.charCodeAt(i);
+      hash = hash & hash;
+    }
+    var idx = Math.abs(hash) % wrongPaths.length;
+    return wrongPaths[idx];
+  }
+
+  function playBeep(freq, dur) {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.15, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+      o.start(); o.stop(ctx.currentTime + dur);
+    } catch(e) {}
+  }
+
+  function playConfirm() {
+    playBeep(880, 0.15);
+    setTimeout(function(){ playBeep(1100, 0.15); }, 160);
+  }
+
+  function playLaunch() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [523,659,784,1047,1319].forEach(function(f,i){
+        var t = ctx.currentTime + i*0.1;
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type='sine'; o.frequency.value=f;
+        g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.2,t+0.04); g.gain.exponentialRampToValueAtTime(0.001,t+0.7);
+        o.start(t); o.stop(t+0.8);
+      });
+    } catch(e) {}
+  }
+
+  function checkArmed() {
+    var btn = document.getElementById('launchBtn');
+    var bar = document.getElementById('statusBar');
+    if (confirmed1 && confirmed2) {
+      btn.disabled = false;
+      btn.className = 'launch-btn armed';
+      bar.className = 'status-bar armed';
+      bar.textContent = '⚠ BOTH CODES CONFIRMED — EXECUTE OVERRIDE NOW';
+    } else {
+      btn.disabled = true;
+      btn.className = 'launch-btn';
+      bar.className = 'status-bar';
+      var missing = [];
+      if (!confirmed1) missing.push('ALPHA');
+      if (!confirmed2) missing.push('BRAVO');
+      bar.textContent = 'WAITING FOR: ' + missing.join(' + ');
+    }
+  }
+
+  function confirm1() {
+    var val = document.getElementById('input1').value.trim();
+    if (!val) return;
+    confirmed1 = true;
+    document.getElementById('input1').disabled = true;
+    document.getElementById('btn1').disabled = true;
+    document.getElementById('btn1').className = 'confirm-btn confirmed';
+    document.getElementById('btn1').textContent = '✓ CODE A CONFIRMED';
+    document.getElementById('dot1').className = 'status-dot ready';
+    document.getElementById('status1').className = 'panel-status ok';
+    document.getElementById('status1').textContent = 'CODE ACCEPTED — STANDING BY';
+    document.getElementById('panel1').className = 'terminal-panel confirmed';
+    playConfirm();
+    checkArmed();
+  }
+
+  function confirm2() {
+    var val = document.getElementById('input2').value.trim();
+    if (!val) return;
+    confirmed2 = true;
+    document.getElementById('input2').disabled = true;
+    document.getElementById('btn2').disabled = true;
+    document.getElementById('btn2').className = 'confirm-btn confirmed';
+    document.getElementById('btn2').textContent = '✓ CODE B CONFIRMED';
+    document.getElementById('dot2').className = 'status-dot ready';
+    document.getElementById('status2').className = 'panel-status ok';
+    document.getElementById('status2').textContent = 'CODE ACCEPTED — STANDING BY';
+    document.getElementById('panel2').className = 'terminal-panel confirmed';
+    playConfirm();
+    checkArmed();
+  }
+
+  function launch() {
+    if (launched || !confirmed1 || !confirmed2) return;
+    launched = true;
+
+    var a = document.getElementById('input1').value.trim().toLowerCase();
+    var b = document.getElementById('input2').value.trim().toLowerCase();
+    var correct = (a === CODE_A && b === CODE_B);
+    var path = correct ? CORRECT_PATH : getWrongPath(a, b);
+    var url = BASE_URL + path;
+
+    localStorage.setItem(STORAGE_KEY, url);
+
+    var launchBtn = document.getElementById('launchBtn');
+    launchBtn.className = 'launch-btn fired';
+    launchBtn.textContent = '✓ OVERRIDE EXECUTED';
+    launchBtn.disabled = true;
+
+    document.getElementById('statusBar').className = 'status-bar fired';
+    document.getElementById('statusBar').textContent = 'OVERRIDE SEQUENCE COMPLETE';
+
+    playLaunch();
+
+    var ra = document.getElementById('resultArea');
+    ra.innerHTML =
+      '<div class="handshake-anim"><div class="hs-block"></div><div class="hs-dot"></div><div class="hs-block"></div></div>';
+
+    setTimeout(function() {
+      ra.innerHTML =
+        '<div class="result-box">' +
+          '<div class="result-lbl">OVERRIDE TARGET — FOLLOW THIS LINK</div>' +
+          '<a class="result-link" href="' + url + '" target="_blank">' + url + '</a>' +
+          '<div class="result-msg">Authentication sequence complete.<br><strong>Click the link above to proceed to the next stage.</strong></div>' +
+        '</div>';
+    }, 1800);
+  }
+
+  function checkStateOnLoad() {
+    var saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      launched = true;
+      confirmed1 = true;
+      confirmed2 = true;
+      document.getElementById('input1').disabled = true;
+      document.getElementById('input2').disabled = true;
+      document.getElementById('btn1').disabled = true;
+      document.getElementById('btn2').disabled = true;
+      document.getElementById('btn1').className = 'confirm-btn confirmed';
+      document.getElementById('btn2').className = 'confirm-btn confirmed';
+      document.getElementById('btn1').textContent = '✓ CODE A CONFIRMED';
+      document.getElementById('btn2').textContent = '✓ CODE B CONFIRMED';
+      document.getElementById('dot1').className = 'status-dot ready';
+      document.getElementById('dot2').className = 'status-dot ready';
+      document.getElementById('panel1').className = 'terminal-panel confirmed';
+      document.getElementById('panel2').className = 'terminal-panel confirmed';
+      document.getElementById('launchBtn').className = 'launch-btn fired';
+      document.getElementById('launchBtn').textContent = '✓ OVERRIDE EXECUTED';
+      document.getElementById('launchBtn').disabled = true;
+      document.getElementById('statusBar').className = 'status-bar fired';
+      document.getElementById('statusBar').textContent = 'OVERRIDE SEQUENCE COMPLETE';
+      document.getElementById('resultArea').innerHTML =
+        '<div class="result-box">' +
+          '<div class="result-lbl">OVERRIDE TARGET — FOLLOW THIS LINK</div>' +
+          '<a class="result-link" href="' + saved + '" target="_blank">' + saved + '</a>' +
+          '<div class="result-msg">Authentication sequence complete.<br><strong>Click the link above to proceed to the next stage.</strong></div>' +
+        '</div>';
+    }
+
+    document.getElementById('input1').addEventListener('keydown', function(e){ if(e.key==='Enter') confirm1(); });
+    document.getElementById('input2').addEventListener('keydown', function(e){ if(e.key==='Enter') confirm2(); });
+    checkArmed();
+  }
+
+  checkStateOnLoad();
+</script>
+</body>
+</html>
