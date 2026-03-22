@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EBX — Final Override</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#010a03;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem;}
+
+  .wrap{background:#020b06;border-radius:10px;overflow:hidden;font-family:'Share Tech Mono',monospace;position:relative;width:100%;max-width:680px;}
+  .scanline{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,80,0.015) 3px,rgba(0,255,80,0.015) 4px);pointer-events:none;z-index:10;}
+
+  .hbar{width:100%;background:#0a1f0f;border-bottom:2px solid #00ff41;padding:0.8rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;}
+  .alert-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;font-weight:700;color:#ff3333;letter-spacing:0.18em;animation:blink 1s step-end infinite;}
+  .sys-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;color:#00ff41;letter-spacing:0.12em;opacity:0.7;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+  .body{padding:1.8rem 2rem 2rem;display:flex;flex-direction:column;align-items:center;gap:1.4rem;}
+
+  .intro-box{background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.2);border-radius:4px;padding:1rem 1.2rem;width:100%;}
+  .intro-box p{font-family:'Rajdhani',sans-serif;font-size:1rem;color:#a0e8b0;line-height:1.75;}
+  .intro-box p strong{color:#00ff41;font-weight:600;}
+
+  .prompt-lbl{font-family:'Orbitron',monospace;font-size:0.68rem;color:#3a8a4a;letter-spacing:0.1em;align-self:flex-start;}
+
+  .input-row{display:flex;gap:0;width:100%;}
+
+  .code-input{
+    flex:1;
+    background:#010e04;
+    border:2px solid #00aa30;
+    border-right:none;
+    border-radius:4px 0 0 4px;
+    padding:0.75rem 1rem;
+    font-family:'Share Tech Mono',monospace;
+    font-size:1.15rem;
+    color:#00ff41;
+    outline:none;
+    letter-spacing:0.15em;
+    caret-color:#00ff41;
+    transition:border-color 0.2s;
+  }
+  .code-input::placeholder{color:#1a5a2a;letter-spacing:0.05em;font-size:0.95rem;}
+  .code-input:focus{border-color:#00ff41;}
+  .code-input:disabled{opacity:0.4;}
+
+  .exec-btn{
+    background:#00aa30;
+    color:#010e04;
+    font-family:'Orbitron',monospace;
+    font-size:0.7rem;
+    font-weight:700;
+    letter-spacing:0.1em;
+    border:2px solid #00aa30;
+    border-radius:0 4px 4px 0;
+    padding:0.75rem 1.1rem;
+    cursor:pointer;
+    transition:background 0.2s;
+    white-space:nowrap;
+  }
+  .exec-btn:hover:not(:disabled){background:#00ff41;border-color:#00ff41;}
+  .exec-btn:active{transform:scale(0.97);}
+  .exec-btn:disabled{opacity:0.3;cursor:not-allowed;}
+
+  .feedback-line{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:600;letter-spacing:0.04em;text-align:center;min-height:1.5rem;}
+  .feedback-line.ok{color:#00ff41;}
+  .feedback-line.err{color:#ff4444;}
+
+  /* COOLDOWN OVERLAY */
+  .cd-layer{position:absolute;inset:0;background:rgba(1,3,1,0.97);display:none;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;z-index:40;padding:2rem;}
+  .cd-icon{font-size:3.5rem;color:#ff3333;animation:iconpulse 1s ease-in-out infinite alternate;}
+  @keyframes iconpulse{from{opacity:0.4}to{opacity:1}}
+  .cd-title{font-family:'Orbitron',monospace;font-size:1rem;font-weight:900;color:#ff3333;letter-spacing:0.15em;text-align:center;}
+  .cd-msg{font-family:'Rajdhani',sans-serif;font-size:0.95rem;color:#cc4444;text-align:center;line-height:1.7;max-width:380px;}
+  .cd-clock{font-family:'Orbitron',monospace;font-size:3rem;font-weight:900;color:#ff3333;letter-spacing:0.1em;}
+  .cd-bar-wrap{width:280px;height:8px;background:#1a0505;border-radius:4px;overflow:hidden;border:1px solid #330000;}
+  .cd-bar{height:100%;background:#ff3333;border-radius:4px;width:100%;transition:width 1s linear;}
+
+  /* SUCCESS OVERLAY */
+  .success-layer{position:absolute;inset:0;background:#020b06;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1.4rem;z-index:50;padding:2rem;overflow:hidden;}
+  .success-layer.show{display:flex;}
+
+  canvas#confetti{position:absolute;inset:0;pointer-events:none;}
+
+  .success-inner{position:relative;z-index:5;display:flex;flex-direction:column;align-items:center;gap:1.2rem;text-align:center;}
+
+  .check-circle{
+    width:90px;height:90px;border-radius:50%;
+    border:4px solid #00ff41;
+    display:flex;align-items:center;justify-content:center;
+    font-size:2.8rem;color:#00ff41;
+    animation:ringpulse 1.5s ease-in-out infinite;
+  }
+  @keyframes ringpulse{
+    0%,100%{box-shadow:0 0 16px rgba(0,255,65,0.4),inset 0 0 16px rgba(0,255,65,0.1);}
+    50%{box-shadow:0 0 36px rgba(0,255,65,0.8),inset 0 0 24px rgba(0,255,65,0.2);}
+  }
+
+  .success-title{
+    font-family:'Orbitron',monospace;font-size:1.5rem;font-weight:900;
+    color:#00ff41;letter-spacing:0.12em;
+    text-shadow:0 0 20px rgba(0,255,65,0.8);
+    animation:glitch 4s infinite;
+  }
+  @keyframes glitch{
+    0%,88%,100%{text-shadow:0 0 20px rgba(0,255,65,0.8);}
+    90%{text-shadow:-3px 0 #ff3333,3px 0 #00ffff,0 0 20px rgba(0,255,65,0.8);}
+    92%{text-shadow:3px 0 #ff3333,-3px 0 #00ffff,0 0 20px rgba(0,255,65,0.8);}
+    94%{text-shadow:0 0 20px rgba(0,255,65,0.8);}
+  }
+
+  .success-sub{
+    font-family:'Orbitron',monospace;font-size:0.7rem;
+    color:#ff3333;letter-spacing:0.2em;
+    animation:blink 1.2s step-end infinite;
+  }
+
+  .success-msg{
+    background:rgba(0,255,65,0.04);
+    border:1px solid rgba(0,255,65,0.25);
+    border-radius:6px;
+    padding:1.2rem 1.5rem;
+    font-family:'Rajdhani',sans-serif;
+    font-size:1.05rem;color:#a0e8b0;
+    line-height:1.8;max-width:480px;
+  }
+  .success-msg strong{color:#00ff41;}
+  .success-msg .big{display:block;font-size:1.3rem;color:#00ff41;font-weight:600;margin-top:0.6rem;letter-spacing:0.06em;}
+
+  @keyframes shake{
+    0%,100%{transform:translateX(0)}
+    20%{transform:translateX(-10px)}
+    40%{transform:translateX(10px)}
+    60%{transform:translateX(-6px)}
+    80%{transform:translateX(6px)}
+  }
+  .shake{animation:shake 0.45s ease;}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="mainWrap">
+  <div class="scanline"></div>
+
+  <div class="hbar">
+    <div class="alert-lbl">⚠ CRITICAL SYSTEM ALERT — EBX</div>
+    <div class="sys-lbl">FINAL OVERRIDE PROTOCOL</div>
+  </div>
+
+  <div class="body">
+
+    <div class="intro-box">
+      <p>This is the <strong>final barrier</strong>. Enter the master override code to resolve the EBX Critical System Alert and complete the escape sequence. One chance — one code. The system is watching.</p>
+    </div>
+
+    <div class="prompt-lbl">&gt; ENTER MASTER OVERRIDE CODE:</div>
+
+    <div class="input-row">
+      <input
+        type="text"
+        class="code-input"
+        id="codeInput"
+        placeholder="Enter override code..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="exec-btn" id="execBtn">EXECUTE</button>
+    </div>
+
+    <div class="feedback-line" id="feedbackLine"></div>
+
+  </div>
+
+  <!-- COOLDOWN OVERLAY -->
+  <div class="cd-layer" id="cdLayer">
+    <div class="cd-icon">&#128274;</div>
+    <div class="cd-title">SECURITY LOCKOUT ACTIVE</div>
+    <div class="cd-msg">Incorrect override code detected.<br>System locked for security protocol.<br>Please wait before attempting again.</div>
+    <div class="cd-clock" id="cdClock">5:00</div>
+    <div class="cd-bar-wrap"><div class="cd-bar" id="cdBar"></div></div>
+  </div>
+
+  <!-- SUCCESS OVERLAY -->
+  <div class="success-layer" id="successLayer">
+    <canvas id="confetti"></canvas>
+    <div class="success-inner">
+      <div class="check-circle">&#10003;</div>
+      <div class="success-title">SYSTEM OVERRIDE COMPLETE</div>
+      <div class="success-sub">EBX CRITICAL ALERT — RESOLVED</div>
+      <div class="success-msg">
+        Override accepted. All systems nominal.<br>
+        The EBX Critical System Alert has been successfully resolved.<br>
+        <strong>Customer requests are back online.</strong>
+        <span class="big">&#127881; You have escaped! &#127881;</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  var ANSWER = '3675931408';
+  var SECS = 300;
+  var STORAGE_CD = 'ebx_final_lockout';
+  var STORAGE_SOLVED = 'ebx_final_solved';
+  var done = false;
+  var cdTimer = null;
+
+  var input = document.getElementById('codeInput');
+  var btn = document.getElementById('execBtn');
+
+  btn.addEventListener('click', attempt);
+  input.addEventListener('keydown', function(e){ if(e.key==='Enter') attempt(); });
+
+  function fmt(s){
+    return Math.floor(s/60)+':'+(s%60<10?'0':'')+s%60;
+  }
+
+  function playSuccess() {
+    try {
+      var ctx = new (window.AudioContext||window.webkitAudioContext)();
+      // fanfare
+      var fanfare = [523,659,784,1047,1319,1047,784,1047,1319];
+      fanfare.forEach(function(f,i){
+        var t = ctx.currentTime + i*0.12;
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type='sine'; o.frequency.value=f;
+        g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.22,t+0.04); g.gain.exponentialRampToValueAtTime(0.001,t+0.8);
+        o.start(t); o.stop(t+0.9);
+      });
+    } catch(e){}
+  }
+
+  function playError() {
+    try {
+      var ctx = new (window.AudioContext||window.webkitAudioContext)();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type='square';
+      o.frequency.setValueAtTime(220,ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(60,ctx.currentTime+0.4);
+      g.gain.setValueAtTime(0.3,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.5);
+      o.start(); o.stop(ctx.currentTime+0.5);
+    } catch(e){}
+  }
+
+  function startConfetti() {
+    var canvas = document.getElementById('confetti');
+    var layer = document.getElementById('successLayer');
+    canvas.width = layer.offsetWidth;
+    canvas.height = layer.offsetHeight;
+    var ctx = canvas.getContext('2d');
+    var particles = [];
+    var colors = ['#00ff41','#ffffff','#ffff00','#00ffff','#ff3333','#00cc33'];
+    for (var i = 0; i < 160; i++) {
+      particles.push({
+        x: canvas.width/2, y: canvas.height/2,
+        vx: (Math.random()-0.5)*16,
+        vy: (Math.random()-0.5)*16 - 4,
+        w: Math.random()*8+3,
+        h: Math.random()*4+2,
+        color: colors[Math.floor(Math.random()*colors.length)],
+        life:1, decay: Math.random()*0.01+0.005,
+        rot: Math.random()*Math.PI*2,
+        rotv: (Math.random()-0.5)*0.2
+      });
+    }
+    function draw(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      var alive=false;
+      particles.forEach(function(p){
+        p.x+=p.vx; p.y+=p.vy; p.vy+=0.25; p.life-=p.decay; p.rot+=p.rotv;
+        if(p.life>0){
+          alive=true;
+          ctx.save();
+          ctx.globalAlpha=p.life;
+          ctx.fillStyle=p.color;
+          ctx.translate(p.x,p.y);
+          ctx.rotate(p.rot);
+          ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+          ctx.restore();
+        }
+      });
+      ctx.globalAlpha=1;
+      if(alive) requestAnimationFrame(draw);
+    }
+    draw();
+    // repeat burst
+    setTimeout(function(){
+      for(var i=0;i<80;i++){
+        particles.push({
+          x:Math.random()*canvas.width, y:-10,
+          vx:(Math.random()-0.5)*6,
+          vy:Math.random()*4+2,
+          w:Math.random()*8+3, h:Math.random()*4+2,
+          color:colors[Math.floor(Math.random()*colors.length)],
+          life:1, decay:Math.random()*0.008+0.004,
+          rot:Math.random()*Math.PI*2, rotv:(Math.random()-0.5)*0.15
+        });
+      }
+      draw();
+    }, 1200);
+  }
+
+  function showSuccess() {
+    done = true;
+    input.disabled = true;
+    btn.disabled = true;
+    playSuccess();
+    setTimeout(function(){
+      var sl = document.getElementById('successLayer');
+      sl.classList.add('show');
+      startConfetti();
+    }, 300);
+  }
+
+  function startCooldown(untilTimestamp) {
+    var until = untilTimestamp || (Date.now() + SECS*1000);
+    localStorage.setItem(STORAGE_CD, until);
+    input.disabled = true;
+    btn.disabled = true;
+    var layer = document.getElementById('cdLayer');
+    layer.style.display = 'flex';
+
+    function tick(){
+      var rem = Math.max(0, Math.ceil((until - Date.now())/1000));
+      document.getElementById('cdClock').textContent = fmt(rem);
+      document.getElementById('cdBar').style.transition = 'width 1s linear';
+      document.getElementById('cdBar').style.width = Math.round((rem/SECS)*100)+'%';
+      if(rem<=0){
+        clearInterval(cdTimer);
+        localStorage.removeItem(STORAGE_CD);
+        layer.style.display='none';
+        input.disabled=false;
+        btn.disabled=false;
+        document.getElementById('feedbackLine').textContent='';
+        document.getElementById('feedbackLine').className='feedback-line';
+        input.focus();
+      }
+    }
+    tick();
+    cdTimer = setInterval(tick, 1000);
+  }
+
+  function attempt() {
+    if (done) return;
+    var val = input.value.trim();
+    if (!val) return;
+
+    if (val === ANSWER) {
+      localStorage.setItem(STORAGE_SOLVED, '1');
+      localStorage.removeItem(STORAGE_CD);
+      showSuccess();
+    } else {
+      playError();
+      var wrap = document.getElementById('mainWrap');
+      wrap.classList.remove('shake');
+      void wrap.offsetWidth;
+      wrap.classList.add('shake');
+      document.getElementById('feedbackLine').className = 'feedback-line err';
+      document.getElementById('feedbackLine').textContent = '✗ INCORRECT CODE — LOCKOUT INITIATED';
+      input.value = '';
+      setTimeout(function(){ startCooldown(); }, 600);
+    }
+  }
+
+  function checkStateOnLoad() {
+    if (localStorage.getItem(STORAGE_SOLVED) === '1') {
+      showSuccess();
+      return;
+    }
+    var cdUntil = localStorage.getItem(STORAGE_CD);
+    if (cdUntil) {
+      var rem = Math.ceil((parseInt(cdUntil) - Date.now())/1000);
+      if (rem > 0) {
+        document.getElementById('feedbackLine').className = 'feedback-line err';
+        document.getElementById('feedbackLine').textContent = 'LOCKOUT ACTIVE — SYSTEM LOCKED';
+        startCooldown(parseInt(cdUntil));
+      } else {
+        localStorage.removeItem(STORAGE_CD);
+      }
+    }
+  }
+
+  checkStateOnLoad();
+</script>
+</body>
+</html>
