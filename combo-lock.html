@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EBX — Combination Lock Protocol</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#010a03;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem;}
+
+  .wrap{background:#020b06;border-radius:10px;overflow:hidden;font-family:'Share Tech Mono',monospace;position:relative;width:100%;max-width:680px;}
+  .scanline{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,80,0.015) 3px,rgba(0,255,80,0.015) 4px);pointer-events:none;z-index:10;}
+
+  .hbar{width:100%;background:#0a1f0f;border-bottom:2px solid #00ff41;padding:0.8rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;}
+  .alert-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;font-weight:700;color:#ff3333;letter-spacing:0.18em;animation:blink 1s step-end infinite;}
+  .sys-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;color:#00ff41;letter-spacing:0.12em;opacity:0.7;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+  .body{padding:1.8rem 2rem 2rem;display:flex;flex-direction:column;align-items:center;gap:1.6rem;}
+
+  .intro-box{background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.2);border-radius:4px;padding:1rem 1.2rem;width:100%;}
+  .intro-box p{font-family:'Rajdhani',sans-serif;font-size:1rem;color:#a0e8b0;line-height:1.75;}
+  .intro-box p strong{color:#00ff41;font-weight:600;}
+
+  /* LOCK BODY */
+  .lock-container{display:flex;flex-direction:column;align-items:center;gap:1.4rem;width:100%;}
+
+  .lock-body{
+    background:#0a1f0f;
+    border:3px solid #00aa30;
+    border-radius:12px;
+    padding:1.6rem 2rem;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:1.4rem;
+    width:100%;
+    max-width:400px;
+    transition:border-color 0.5s, box-shadow 0.5s;
+    position:relative;
+  }
+  .lock-body.unlocked{
+    border-color:#00ff41;
+    box-shadow:0 0 24px rgba(0,255,65,0.3);
+  }
+  .lock-body.error-state{
+    border-color:#ff3333;
+    box-shadow:0 0 16px rgba(255,51,51,0.3);
+    animation:lockShake 0.45s ease;
+  }
+  @keyframes lockShake{
+    0%,100%{transform:translateX(0)}
+    20%{transform:translateX(-10px)}
+    40%{transform:translateX(10px)}
+    60%{transform:translateX(-6px)}
+    80%{transform:translateX(6px)}
+  }
+
+  /* SHACKLE */
+  .shackle-wrap{display:flex;justify-content:center;width:100%;}
+  .shackle{
+    width:70px;
+    height:50px;
+    border:5px solid #00aa30;
+    border-bottom:none;
+    border-radius:40px 40px 0 0;
+    transition:transform 0.6s cubic-bezier(0.34,1.56,0.64,1), border-color 0.5s;
+    transform-origin:bottom center;
+  }
+  .shackle.open{
+    transform:rotate(-40deg) translateY(-8px);
+    border-color:#00ff41;
+  }
+  .shackle.error{border-color:#ff3333;}
+
+  /* DIALS */
+  .dials-row{display:flex;gap:1rem;align-items:center;justify-content:center;}
+
+  .dial-wrap{display:flex;flex-direction:column;align-items:center;gap:0.5rem;}
+  .dial-lbl{font-family:'Orbitron',monospace;font-size:0.55rem;color:#3a8a4a;letter-spacing:0.1em;}
+
+  .dial{
+    width:72px;
+    height:96px;
+    background:#010e04;
+    border:2px solid #00aa30;
+    border-radius:8px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:space-between;
+    padding:6px 0;
+    position:relative;
+    overflow:hidden;
+    transition:border-color 0.4s;
+  }
+  .dial.unlocked-dial{border-color:#00ff41;}
+  .dial.error-dial{border-color:#ff3333;}
+
+  .dial-up, .dial-down{
+    background:transparent;
+    border:none;
+    color:#00aa30;
+    font-size:1.1rem;
+    cursor:pointer;
+    padding:2px 12px;
+    line-height:1;
+    transition:color 0.2s, transform 0.1s;
+    font-family:'Share Tech Mono',monospace;
+    z-index:2;
+  }
+  .dial-up:hover, .dial-down:hover{color:#00ff41;}
+  .dial-up:active{transform:scale(0.85) translateY(-2px);}
+  .dial-down:active{transform:scale(0.85) translateY(2px);}
+  .dial-up:disabled, .dial-down:disabled{opacity:0.3;cursor:not-allowed;}
+
+  .dial-display{
+    font-family:'Orbitron',monospace;
+    font-size:2rem;
+    font-weight:900;
+    color:#00ff41;
+    letter-spacing:0.05em;
+    line-height:1;
+    text-shadow:0 0 8px rgba(0,255,65,0.5);
+    transition:color 0.4s;
+    z-index:2;
+  }
+  .dial-display.error-num{color:#ff3333;text-shadow:0 0 8px rgba(255,51,51,0.5);}
+
+  .dial-tick{
+    position:absolute;
+    left:0;right:0;top:50%;
+    height:2px;
+    background:rgba(0,255,65,0.15);
+    transform:translateY(-50%);
+    pointer-events:none;
+  }
+
+  /* SUBMIT */
+  .submit-btn{
+    width:100%;
+    max-width:200px;
+    background:#00aa30;
+    color:#010e04;
+    font-family:'Orbitron',monospace;
+    font-size:0.75rem;
+    font-weight:700;
+    letter-spacing:0.15em;
+    border:2px solid #00aa30;
+    border-radius:6px;
+    padding:0.75rem 1rem;
+    cursor:pointer;
+    transition:background 0.2s;
+  }
+  .submit-btn:hover:not(:disabled){background:#00ff41;border-color:#00ff41;}
+  .submit-btn:active{transform:scale(0.97);}
+  .submit-btn:disabled{opacity:0.3;cursor:not-allowed;}
+
+  /* FEEDBACK */
+  .feedback-line{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:600;letter-spacing:0.04em;text-align:center;min-height:1.5rem;}
+  .feedback-line.ok{color:#00ff41;}
+  .feedback-line.err{color:#ff4444;}
+
+  /* RESULT */
+  .result-box{background:#010e04;border:2px solid #00ff41;border-radius:6px;padding:1.2rem 1.5rem;text-align:center;width:100%;animation:fadeup 0.6s ease;}
+  @keyframes fadeup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  .result-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;color:#00aa30;letter-spacing:0.18em;margin-bottom:0.5rem;}
+  .result-num{font-family:'Share Tech Mono',monospace;font-size:3rem;color:#00ff41;letter-spacing:0.2em;}
+  .result-msg{font-family:'Rajdhani',sans-serif;font-size:0.95rem;color:#a0e8b0;margin-top:0.6rem;line-height:1.7;}
+  .result-msg strong{color:#00ff41;}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="mainWrap">
+  <div class="scanline"></div>
+
+  <div class="hbar">
+    <div class="alert-lbl">⚠ CRITICAL SYSTEM ALERT — EBX</div>
+    <div class="sys-lbl">COMBINATION LOCK PROTOCOL</div>
+  </div>
+
+  <div class="body">
+
+    <div class="intro-box">
+      <p>A combination lock stands between you and the next access index. Set the <strong>correct three-digit combination</strong> using the dials and confirm. The lock will release your assigned number. Choose wisely — an incorrect combination will trigger a security alert.</p>
+    </div>
+
+    <div class="lock-container">
+
+      <div class="lock-body" id="lockBody">
+        <div class="shackle-wrap">
+          <div class="shackle" id="shackle"></div>
+        </div>
+
+        <div class="dials-row">
+          <div class="dial-wrap">
+            <div class="dial-lbl">DIGIT I</div>
+            <div class="dial" id="dial0">
+              <button class="dial-up" id="up0" onclick="change(0,1)">▲</button>
+              <div class="dial-display" id="disp0">0</div>
+              <div class="dial-tick"></div>
+              <button class="dial-down" id="dn0" onclick="change(0,-1)">▼</button>
+            </div>
+          </div>
+          <div class="dial-wrap">
+            <div class="dial-lbl">DIGIT II</div>
+            <div class="dial" id="dial1">
+              <button class="dial-up" id="up1" onclick="change(1,1)">▲</button>
+              <div class="dial-display" id="disp1">0</div>
+              <div class="dial-tick"></div>
+              <button class="dial-down" id="dn1" onclick="change(1,-1)">▼</button>
+            </div>
+          </div>
+          <div class="dial-wrap">
+            <div class="dial-lbl">DIGIT III</div>
+            <div class="dial" id="dial2">
+              <button class="dial-up" id="up2" onclick="change(2,1)">▲</button>
+              <div class="dial-display" id="disp2">0</div>
+              <div class="dial-tick"></div>
+              <button class="dial-down" id="dn2" onclick="change(2,-1)">▼</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="submit-btn" id="submitBtn" onclick="tryLock()">CONFIRM</button>
+      </div>
+
+      <div class="feedback-line" id="feedbackLine"></div>
+      <div id="resultArea" style="width:100%;display:flex;flex-direction:column;align-items:center;"></div>
+
+    </div>
+
+  </div>
+</div>
+
+<script>
+  var COMBO = [3, 8, 1];
+  var CORRECT_NUM = 4;
+  var STORAGE_KEY = 'ebx_lock_solved';
+  var digits = [0, 0, 0];
+  var solved = false;
+
+  function change(idx, dir) {
+    if (solved) return;
+    digits[idx] = (digits[idx] + dir + 10) % 10;
+    document.getElementById('disp' + idx).textContent = digits[idx];
+    playClick();
+  }
+
+  function playClick() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'square'; o.frequency.value = 800;
+      g.gain.setValueAtTime(0.06, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+      o.start(); o.stop(ctx.currentTime + 0.06);
+    } catch(e) {}
+  }
+
+  function playError() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'square';
+      o.frequency.setValueAtTime(220, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.4);
+      g.gain.setValueAtTime(0.3, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      o.start(); o.stop(ctx.currentTime + 0.5);
+    } catch(e) {}
+  }
+
+  function playUnlock() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // mechanical clunk
+      var noise = ctx.createOscillator(), ng = ctx.createGain();
+      noise.connect(ng); ng.connect(ctx.destination);
+      noise.type = 'sawtooth'; noise.frequency.value = 120;
+      ng.gain.setValueAtTime(0.2, ctx.currentTime);
+      ng.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      noise.start(); noise.stop(ctx.currentTime + 0.2);
+      // success melody
+      [523,659,784,1047,1319].forEach(function(f,i){
+        var t = ctx.currentTime + 0.2 + i*0.1;
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type='sine'; o.frequency.value=f;
+        g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.2,t+0.04); g.gain.exponentialRampToValueAtTime(0.001,t+0.7);
+        o.start(t); o.stop(t+0.8);
+      });
+    } catch(e) {}
+  }
+
+  function setDialsDisabled(off) {
+    for (var i = 0; i < 3; i++) {
+      document.getElementById('up'+i).disabled = off;
+      document.getElementById('dn'+i).disabled = off;
+    }
+    document.getElementById('submitBtn').disabled = off;
+  }
+
+  function showUnlocked() {
+    solved = true;
+    setDialsDisabled(true);
+    playUnlock();
+
+    // shackle open
+    document.getElementById('shackle').classList.add('open');
+    document.getElementById('lockBody').classList.add('unlocked');
+    for (var i = 0; i < 3; i++) {
+      document.getElementById('dial'+i).classList.add('unlocked-dial');
+    }
+
+    document.getElementById('feedbackLine').className = 'feedback-line ok';
+    document.getElementById('feedbackLine').textContent = '✓ COMBINATION CORRECT — LOCK RELEASED';
+
+    setTimeout(function(){
+      document.getElementById('resultArea').innerHTML =
+        '<div class="result-box">' +
+          '<div class="result-lbl">SYSTEM INDEX — ASSIGNED NUMBER</div>' +
+          '<div class="result-num">' + CORRECT_NUM + '</div>' +
+          '<div class="result-msg">Combination accepted. Lock disengaged.<br><strong>Your assigned index is ' + CORRECT_NUM + '.</strong><br>Use this number in the next stage.</div>' +
+        '</div>';
+    }, 800);
+  }
+
+  function tryLock() {
+    if (solved) return;
+    var correct = digits[0] === COMBO[0] && digits[1] === COMBO[1] && digits[2] === COMBO[2];
+
+    if (correct) {
+      showUnlocked();
+      localStorage.setItem(STORAGE_KEY, '1');
+    } else {
+      playError();
+      var lb = document.getElementById('lockBody');
+      lb.classList.remove('error-state');
+      void lb.offsetWidth;
+      lb.classList.add('error-state');
+      for (var i = 0; i < 3; i++) {
+        var d = document.getElementById('dial'+i);
+        var disp = document.getElementById('disp'+i);
+        d.classList.add('error-dial');
+        disp.classList.add('error-num');
+      }
+      document.getElementById('shackle').classList.add('error');
+      document.getElementById('feedbackLine').className = 'feedback-line err';
+      document.getElementById('feedbackLine').textContent = '✗ INCORRECT COMBINATION — ACCESS DENIED';
+
+      setTimeout(function(){
+        lb.classList.remove('error-state');
+        for (var j = 0; j < 3; j++) {
+          document.getElementById('dial'+j).classList.remove('error-dial');
+          document.getElementById('disp'+j).classList.remove('error-num');
+        }
+        document.getElementById('shackle').classList.remove('error');
+        document.getElementById('feedbackLine').textContent = '';
+        document.getElementById('feedbackLine').className = 'feedback-line';
+      }, 1200);
+    }
+  }
+
+  function checkStateOnLoad() {
+    if (localStorage.getItem(STORAGE_KEY) === '1') {
+      // restore correct digits on dials
+      for (var i = 0; i < 3; i++) {
+        digits[i] = COMBO[i];
+        document.getElementById('disp'+i).textContent = COMBO[i];
+      }
+      showUnlocked();
+    }
+  }
+
+  checkStateOnLoad();
+</script>
+</body>
+</html>
