@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EBX — Identification Protocol</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#010a03;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem;}
+
+  .wrap{background:#020b06;border-radius:10px;overflow:hidden;font-family:'Share Tech Mono',monospace;position:relative;width:100%;max-width:680px;}
+  .scanline{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,80,0.015) 3px,rgba(0,255,80,0.015) 4px);pointer-events:none;z-index:10;}
+
+  .hbar{width:100%;background:#0a1f0f;border-bottom:2px solid #00ff41;padding:0.8rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;}
+  .alert-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;font-weight:700;color:#ff3333;letter-spacing:0.18em;animation:blink 1s step-end infinite;}
+  .sys-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;color:#00ff41;letter-spacing:0.12em;opacity:0.7;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+  .body{padding:1.8rem 2rem;display:flex;flex-direction:column;align-items:center;gap:1.4rem;}
+
+  .intro-box{background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.2);border-radius:4px;padding:1rem 1.2rem;width:100%;}
+  .intro-box p{font-family:'Rajdhani',sans-serif;font-size:1rem;color:#a0e8b0;line-height:1.75;}
+  .intro-box p strong{color:#00ff41;font-weight:600;}
+
+  .prompt-lbl{font-family:'Orbitron',monospace;font-size:0.68rem;color:#3a8a4a;letter-spacing:0.1em;align-self:flex-start;}
+
+  .input-row{display:flex;gap:0;width:100%;}
+
+  .code-input{
+    flex:1;
+    background:#010e04;
+    border:2px solid #00aa30;
+    border-right:none;
+    border-radius:4px 0 0 4px;
+    padding:0.75rem 1rem;
+    font-family:'Share Tech Mono',monospace;
+    font-size:1rem;
+    color:#00ff41;
+    outline:none;
+    letter-spacing:0.06em;
+    caret-color:#00ff41;
+    transition:border-color 0.2s;
+  }
+  .code-input::placeholder{color:#1a5a2a;}
+  .code-input:focus{border-color:#00ff41;}
+  .code-input:disabled{opacity:0.4;}
+
+  .exec-btn{
+    background:#00aa30;
+    color:#010e04;
+    font-family:'Orbitron',monospace;
+    font-size:0.7rem;
+    font-weight:700;
+    letter-spacing:0.1em;
+    border:2px solid #00aa30;
+    border-radius:0 4px 4px 0;
+    padding:0.75rem 1.1rem;
+    cursor:pointer;
+    transition:background 0.2s;
+    white-space:nowrap;
+  }
+  .exec-btn:hover{background:#00ff41;border-color:#00ff41;}
+  .exec-btn:active{transform:scale(0.97);}
+  .exec-btn:disabled{opacity:0.3;cursor:not-allowed;}
+
+  .feedback-line{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:600;letter-spacing:0.04em;text-align:center;min-height:1.6rem;}
+  .feedback-line.ok{color:#00ff41;}
+  .feedback-line.err{color:#ff4444;}
+
+  .code-box{background:#010e04;border:2px solid #00ff41;border-radius:6px;padding:1rem 1.5rem;text-align:center;width:100%;}
+  .code-lbl{font-family:'Orbitron',monospace;font-size:0.65rem;color:#00aa30;letter-spacing:0.18em;margin-bottom:0.6rem;}
+  .code-hash{font-family:'Share Tech Mono',monospace;font-size:0.85rem;color:#00ff41;letter-spacing:0.08em;word-break:break-all;line-height:1.8;}
+
+  .door-text{font-family:'Rajdhani',sans-serif;font-size:0.95rem;color:#a0e8b0;text-align:center;line-height:1.7;max-width:520px;}
+  .door-text strong{color:#00ff41;}
+
+  @keyframes shake{
+    0%,100%{transform:translateX(0)}
+    20%{transform:translateX(-8px)}
+    40%{transform:translateX(8px)}
+    60%{transform:translateX(-5px)}
+    80%{transform:translateX(5px)}
+  }
+  .shake{animation:shake 0.45s ease;}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="mainWrap">
+  <div class="scanline"></div>
+
+  <div class="hbar">
+    <div class="alert-lbl">⚠ CRITICAL SYSTEM ALERT — EBX</div>
+    <div class="sys-lbl">SYSTEM IDENTIFICATION PROTOCOL</div>
+  </div>
+
+  <div class="body">
+
+    <div class="intro-box">
+      <p>The system requires identification before granting access. You must enter the <strong>full name</strong> of the system you are attempting to override. Correct identification will release the next access code. You have <strong>unlimited attempts</strong> — but every wrong answer will be logged.</p>
+    </div>
+
+    <div class="prompt-lbl">&gt; ENTER SYSTEM NAME:</div>
+
+    <div class="input-row">
+      <input
+        type="text"
+        class="code-input"
+        id="wordInput"
+        placeholder="Type your answer..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="exec-btn" id="execBtn">EXECUTE</button>
+    </div>
+
+    <div class="feedback-line" id="feedbackLine"></div>
+    <div id="resultArea" style="display:flex;flex-direction:column;align-items:center;gap:1rem;width:100%;"></div>
+
+  </div>
+</div>
+
+<script>
+  var ANSWER = 'e-business extensions';
+  var CODE = '8ec2aa8075415fc1226ee34b34f8808f3a692588';
+  var STORAGE_SOLVED = 'ebx_word_solved';
+  var done = false;
+
+  var input = document.getElementById('wordInput');
+  var btn = document.getElementById('execBtn');
+  var feedback = document.getElementById('feedbackLine');
+  var resultArea = document.getElementById('resultArea');
+
+  btn.addEventListener('click', attempt);
+  input.addEventListener('keydown', function(e) { if (e.key === 'Enter') attempt(); });
+
+  function playOk() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [523, 659, 784, 1047, 1319].forEach(function(f, i) {
+        var t = ctx.currentTime + i * 0.1;
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.2, t + 0.04);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+        o.start(t); o.stop(t + 0.8);
+      });
+    } catch(e) {}
+  }
+
+  function playErr() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'square';
+      o.frequency.setValueAtTime(220, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.4);
+      g.gain.setValueAtTime(0.25, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      o.start(); o.stop(ctx.currentTime + 0.5);
+    } catch(e) {}
+  }
+
+  function shake() {
+    var wrap = document.getElementById('mainWrap');
+    wrap.classList.remove('shake');
+    void wrap.offsetWidth;
+    wrap.classList.add('shake');
+    setTimeout(function() { wrap.classList.remove('shake'); }, 500);
+  }
+
+  function showSolved() {
+    done = true;
+    input.disabled = true;
+    btn.disabled = true;
+    feedback.className = 'feedback-line ok';
+    feedback.textContent = '✓ SYSTEM IDENTIFIED — ACCESS GRANTED';
+    resultArea.innerHTML =
+      '<div class="code-box">' +
+        '<div class="code-lbl">ACCESS CODE — NEXT LEVEL</div>' +
+        '<div class="code-hash">' + CODE + '</div>' +
+      '</div>' +
+      '<div class="door-text">Identity confirmed. The system has released the next access code.<br><strong>Proceed to the next challenge.</strong><br>Use the code above when prompted.</div>';
+  }
+
+  function attempt() {
+    if (done) return;
+    var val = input.value.trim().toLowerCase();
+    if (!val) return;
+
+    if (val === ANSWER) {
+      localStorage.setItem(STORAGE_SOLVED, '1');
+      playOk();
+      showSolved();
+    } else {
+      playErr();
+      shake();
+      feedback.className = 'feedback-line err';
+      feedback.textContent = '✗ INCORRECT — SYSTEM NAME NOT RECOGNISED. TRY AGAIN.';
+      input.value = '';
+      input.focus();
+    }
+  }
+
+  function checkStateOnLoad() {
+    if (localStorage.getItem(STORAGE_SOLVED) === '1') {
+      showSolved();
+    }
+  }
+
+  checkStateOnLoad();
+</script>
+</body>
+</html>
